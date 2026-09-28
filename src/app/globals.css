@@ -217,6 +217,77 @@ html[data-theme="rose"] {
   --sidebar-ring: oklch(0.645 0.22 16);
 }
 
+/* ---- STRATO · tema de cliente: Porta Magna ----
+ * Azul marino #2C3B4E · ámbar #FEB161 · arena #EDE9DE · cobre #B48468.
+ * El acento se aplica en ambos modos; en modo claro el tema también
+ * entibia las superficies neutras hacia la arena de la marca, y en
+ * modo oscuro el primario pasa a ámbar para conservar contraste. */
+html[data-theme="portamagna"] {
+  --primary: oklch(0.348 0.039 254.6);
+  --primary-foreground: oklch(0.985 0.005 90);
+  --primary-hover: oklch(0.411 0.045 254.8);
+  --primary-soft: oklch(0.348 0.039 254.6 / 0.1);
+  --primary-soft-2: oklch(0.348 0.039 254.6 / 0.18);
+  --ring: oklch(0.348 0.039 254.6);
+  --chart-1: oklch(0.348 0.039 254.6);
+  --chart-2: oklch(0.819 0.132 65.1);
+  --sidebar-primary: oklch(0.348 0.039 254.6);
+  --sidebar-primary-foreground: oklch(0.985 0.005 90);
+  --sidebar-ring: oklch(0.348 0.039 254.6);
+}
+
+html[data-theme="portamagna"][data-mode="light"] {
+  --background: oklch(0.965 0.01 87.5);
+  --foreground: oklch(0.271 0.025 258.3);
+  --card: oklch(0.995 0.003 87.5);
+  --card-2: oklch(0.975 0.007 87.5);
+  --card-foreground: oklch(0.271 0.025 258.3);
+  --popover: oklch(0.995 0.003 87.5);
+  --popover-foreground: oklch(0.271 0.025 258.3);
+  --secondary: oklch(0.934 0.015 90.2);
+  --secondary-foreground: oklch(0.348 0.039 254.6);
+  --muted: oklch(0.934 0.015 90.2);
+  --muted-foreground: oklch(0.5 0.015 90);
+  --accent: oklch(0.945 0.013 88);
+  --accent-foreground: oklch(0.348 0.039 254.6);
+  --border: oklch(0.88 0.02 87.5);
+  --input: oklch(0.88 0.02 87.5);
+  --chart-3: oklch(0.654 0.072 51.3);
+  --chart-4: oklch(0.72 0.03 254);
+  --chart-5: oklch(0.86 0.02 87.5);
+  --sidebar: oklch(0.955 0.012 88);
+  --sidebar-foreground: oklch(0.271 0.025 258.3);
+  --sidebar-accent: oklch(0.934 0.015 90.2);
+  --sidebar-accent-foreground: oklch(0.348 0.039 254.6);
+  --sidebar-border: oklch(0.88 0.02 87.5);
+}
+
+html[data-theme="portamagna"][data-mode="dark"] {
+  --background: oklch(0.2 0.025 255);
+  --card: oklch(0.245 0.03 255);
+  --card-2: oklch(0.27 0.03 255);
+  --popover: oklch(0.245 0.03 255);
+  --secondary: oklch(0.29 0.03 255);
+  --muted: oklch(0.29 0.03 255);
+  --accent: oklch(0.29 0.03 255);
+  --border: oklch(0.34 0.03 255);
+  --input: oklch(0.34 0.03 255);
+  --sidebar: oklch(0.22 0.028 255);
+  --sidebar-accent: oklch(0.29 0.03 255);
+  --sidebar-border: oklch(0.34 0.03 255);
+  --primary: oklch(0.819 0.132 65.1);
+  --primary-foreground: oklch(0.348 0.039 254.6);
+  --primary-hover: oklch(0.86 0.12 65.1);
+  --primary-soft: oklch(0.819 0.132 65.1 / 0.14);
+  --primary-soft-2: oklch(0.819 0.132 65.1 / 0.24);
+  --ring: oklch(0.819 0.132 65.1);
+  --chart-1: oklch(0.819 0.132 65.1);
+  --chart-2: oklch(0.654 0.072 51.3);
+  --sidebar-primary: oklch(0.819 0.132 65.1);
+  --sidebar-primary-foreground: oklch(0.348 0.039 254.6);
+  --sidebar-ring: oklch(0.819 0.132 65.1);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
