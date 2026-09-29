@@ -91,7 +91,23 @@ export async function dispatchInboundToAiReply(
     if (conv.ai_autoreply_disabled) return // handed off / turned off here
     // Cheap early-out; the authoritative cap check is the atomic claim
     // below (this read can race a concurrent inbound).
-    if (conv.ai_reply_count >= config.autoReplyMaxPerConversation) return
+    if (conv.ai_reply_count >= config.autoReplyMaxPerConversation) {
+      // Cap reached: instead of going silent, hand the thread to a human
+      // and tell the customer someone will follow up.
+      await handOffConversation(db, {
+        accountId,
+        conversationId,
+        contactId,
+        configOwnerUserId,
+        handoffAgentId: config.handoffAgentId,
+        assignedAgentId: conv.assigned_agent_id,
+        summary: buildHandoffSummary({
+          messages: await buildConversationContext(db, conversationId),
+          replyCount: conv.ai_reply_count ?? 0,
+        }),
+      })
+      return
+    }
 
     const messages = await buildConversationContext(db, conversationId)
     if (messages.length === 0) return
@@ -158,26 +174,20 @@ export async function dispatchInboundToAiReply(
 
     if (handoff || !text) {
       // The model can't (or shouldn't) answer — stop auto-replying on
-      // this thread and hand it to a human. We (a) pause the bot here
-      // (sticky until re-enabled), (b) route the conversation to the
-      // configured handoff agent — null leaves it in the shared queue —
-      // and (c) leave a short internal note so whoever picks it up has
-      // context. Assigning fires the `on_conversation_assigned` trigger,
-      // which notifies the agent.
-      const summary = buildHandoffSummary({
-        messages,
-        replyCount: conv.ai_reply_count ?? 0,
+      // this thread, hand it to a human, and tell the customer so the
+      // thread doesn't just go silent. See handOffConversation.
+      await handOffConversation(db, {
+        accountId,
+        conversationId,
+        contactId,
+        configOwnerUserId,
+        handoffAgentId: config.handoffAgentId,
+        assignedAgentId: conv.assigned_agent_id,
+        summary: buildHandoffSummary({
+          messages,
+          replyCount: conv.ai_reply_count ?? 0,
+        }),
       })
-      const update: Record<string, unknown> = {
-        ai_autoreply_disabled: true,
-        ai_handoff_summary: summary,
-      }
-      // Only set the assignee when a target is configured AND the thread
-      // isn't already owned — never stomp an existing human assignment.
-      if (config.handoffAgentId && !conv.assigned_agent_id) {
-        update.assigned_agent_id = config.handoffAgentId
-      }
-      await db.from('conversations').update(update).eq('id', conversationId)
       return
     }
 
@@ -213,6 +223,143 @@ export async function dispatchInboundToAiReply(
     })
   } catch (err) {
     console.error('[ai auto-reply] dispatch failed:', err)
+  }
+}
+
+/** Default text sent to the customer when the bot hands a thread to a
+ *  human. Override per deployment with `AI_HANDOFF_MESSAGE`; set it to
+ *  `off` to hand off silently (the previous behaviour). */
+const DEFAULT_HANDOFF_MESSAGE =
+  'Gracias. Un asesor se pone en contacto contigo a la brevedad.'
+
+export function aiHandoffMessage(): string | null {
+  const raw = process.env.AI_HANDOFF_MESSAGE
+  if (raw === undefined) return DEFAULT_HANDOFF_MESSAGE
+  const trimmed = raw.trim()
+  if (!trimmed || trimmed.toLowerCase() === 'off') return null
+  return trimmed
+}
+
+/**
+ * Hand a conversation from the bot to a human:
+ *   (a) pause the bot on this thread (sticky until re-enabled),
+ *   (b) route it to the configured handoff agent — null leaves it in
+ *       the shared queue; never stomps an existing assignment,
+ *   (c) leave a short internal note for whoever picks it up,
+ *   (d) tell the customer a person will follow up (best-effort — a
+ *       failed send must not undo the handoff).
+ * Assigning fires the `on_conversation_assigned` trigger, which
+ * notifies the agent.
+ */
+async function handOffConversation(
+  db: ReturnType<typeof supabaseAdmin>,
+  args: {
+    accountId: string
+    conversationId: string
+    contactId: string
+    configOwnerUserId: string
+    handoffAgentId: string | null
+    assignedAgentId: string | null
+    summary: string
+  },
+): Promise<void> {
+  const update: Record<string, unknown> = {
+    ai_autoreply_disabled: true,
+    ai_handoff_summary: args.summary,
+  }
+  if (args.handoffAgentId && !args.assignedAgentId) {
+    update.assigned_agent_id = args.handoffAgentId
+  }
+  await db.from('conversations').update(update).eq('id', args.conversationId)
+
+  const text = aiHandoffMessage()
+  if (!text) return
+  try {
+    await engineSendText({
+      accountId: args.accountId,
+      userId: args.configOwnerUserId,
+      conversationId: args.conversationId,
+      contactId: args.contactId,
+      text,
+      aiGenerated: true,
+    })
+  } catch (err) {
+    console.warn('[ai auto-reply] handoff message failed (handoff kept):', err)
+  }
+}
+
+/** Human-readable label for a non-text inbound, used in the handoff note. */
+const NON_TEXT_LABEL: Record<string, string> = {
+  audio: 'una nota de voz o audio',
+  image: 'una imagen',
+  video: 'un video',
+  document: 'un documento',
+  sticker: 'un sticker',
+  location: 'una ubicación',
+}
+
+/** Inbound types the bot cannot read and should hand to a human. */
+export function isNonTextHandoffType(type: string): boolean {
+  return type in NON_TEXT_LABEL
+}
+
+/**
+ * The customer sent something the bot can't read (voice note, photo,
+ * document…). Rather than ignore it, hand the thread to a human — but
+ * only when the bot would otherwise own this thread: auto-reply on, no
+ * message-level automation, no human assigned, not already handed off.
+ * Owns its try/catch and never throws, like dispatchInboundToAiReply.
+ */
+export async function dispatchNonTextInboundHandoff(args: {
+  accountId: string
+  conversationId: string
+  contactId: string
+  configOwnerUserId: string
+  messageType: string
+}): Promise<void> {
+  const { accountId, conversationId, contactId, configOwnerUserId, messageType } =
+    args
+  try {
+    if (!isNonTextHandoffType(messageType)) return
+    const db = supabaseAdmin()
+
+    const config = await loadAiConfig(db, accountId)
+    if (!config || !config.autoReplyEnabled) return
+
+    const { data: autoResponders } = await db
+      .from('automations')
+      .select('id')
+      .eq('account_id', accountId)
+      .eq('is_active', true)
+      .in('trigger_type', ['new_message_received', 'keyword_match'])
+      .limit(1)
+    if (autoResponders && autoResponders.length > 0) return
+
+    const { data: conv, error: convErr } = await db
+      .from('conversations')
+      .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count')
+      .eq('id', conversationId)
+      .maybeSingle()
+    if (convErr || !conv) return
+    if (conv.assigned_agent_id) return
+    if (conv.ai_autoreply_disabled) return
+
+    const replies = conv.ai_reply_count ?? 0
+    const summary =
+      `🤖 El agente pasó la conversación: el cliente envió ${NON_TEXT_LABEL[messageType]}` +
+      (replies > 0 ? ` después de ${replies} ${replies === 1 ? 'respuesta' : 'respuestas'} del agente.` : '.')
+
+    await handOffConversation(db, {
+      accountId,
+      conversationId,
+      contactId,
+      configOwnerUserId,
+      handoffAgentId: config.handoffAgentId,
+      assignedAgentId: conv.assigned_agent_id,
+      summary,
+    })
+  } catch (err) {
+    console.error('[ai auto-reply] non-text handoff failed:', err)
   }
 }
 

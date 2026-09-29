@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { AiConfig } from './types'
 
 // Shared, hoisted mock state so the module mocks can close over it.
@@ -65,7 +65,11 @@ vi.mock('./admin-client', () => ({
   }),
 }))
 
-import { dispatchInboundToAiReply } from './auto-reply'
+import {
+  dispatchInboundToAiReply,
+  dispatchNonTextInboundHandoff,
+  aiHandoffMessage,
+} from './auto-reply'
 
 const ARGS = {
   accountId: 'acct-1',
@@ -184,14 +188,20 @@ describe('dispatchInboundToAiReply — eligibility gates', () => {
     expect(h.engineSendText).not.toHaveBeenCalled()
   })
 
-  it('skips when the per-conversation cap is reached', async () => {
+  it('hands off (no LLM call) when the per-conversation cap is reached', async () => {
     h.state.conv = {
       assigned_agent_id: null,
       ai_autoreply_disabled: false,
       ai_reply_count: 3,
     }
     await dispatchInboundToAiReply(ARGS)
-    expect(h.engineSendText).not.toHaveBeenCalled()
+    expect(h.generateReply).not.toHaveBeenCalled()
+    expect(h.state.rpcCalls).toHaveLength(0)
+    expect(h.state.updatePayload).toMatchObject({ ai_autoreply_disabled: true })
+    expect(h.engineSendText).toHaveBeenCalledTimes(1)
+    expect(h.engineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({ text: aiHandoffMessage() }),
+    )
   })
 
   it('skips when there is nothing to reply to', async () => {
@@ -268,10 +278,16 @@ describe('dispatchInboundToAiReply — typing indicator (#527)', () => {
 })
 
 describe('dispatchInboundToAiReply — handoff', () => {
-  it('disables auto-reply, writes a summary, and does not send on handoff', async () => {
+  it('disables auto-reply, writes a summary, and tells the customer on handoff', async () => {
     h.generateReply.mockResolvedValue({ text: '', handoff: true })
     await dispatchInboundToAiReply(ARGS)
-    expect(h.engineSendText).not.toHaveBeenCalled()
+    expect(h.engineSendText).toHaveBeenCalledTimes(1)
+    expect(h.engineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationId: 'conv-1',
+        text: 'Gracias. Un asesor se pone en contacto contigo a la brevedad.',
+      }),
+    )
     expect(h.state.rpcCalls).toHaveLength(0)
     expect(h.state.updatePayload).toMatchObject({ ai_autoreply_disabled: true })
     expect(h.state.updatePayload?.ai_handoff_summary).toContain(
@@ -289,5 +305,97 @@ describe('dispatchInboundToAiReply — handoff', () => {
       ai_autoreply_disabled: true,
       assigned_agent_id: 'agent-7',
     })
+  })
+})
+
+describe('handoff message', () => {
+  const saved = process.env.AI_HANDOFF_MESSAGE
+  afterEach(() => {
+    if (saved === undefined) delete process.env.AI_HANDOFF_MESSAGE
+    else process.env.AI_HANDOFF_MESSAGE = saved
+  })
+
+  it('uses AI_HANDOFF_MESSAGE when set', async () => {
+    process.env.AI_HANDOFF_MESSAGE = 'Un asesor te contacta pronto.'
+    h.generateReply.mockResolvedValue({ text: '', handoff: true })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.engineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'Un asesor te contacta pronto.' }),
+    )
+  })
+
+  it('hands off silently when AI_HANDOFF_MESSAGE is "off"', async () => {
+    process.env.AI_HANDOFF_MESSAGE = 'off'
+    h.generateReply.mockResolvedValue({ text: '', handoff: true })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.engineSendText).not.toHaveBeenCalled()
+    expect(h.state.updatePayload).toMatchObject({ ai_autoreply_disabled: true })
+  })
+
+  it('keeps the handoff when the customer message fails to send', async () => {
+    h.engineSendText.mockRejectedValue(new Error('meta down'))
+    h.loadAiConfig.mockResolvedValue(aiConfig({ handoffAgentId: 'agent-7' }))
+    h.generateReply.mockResolvedValue({ text: '', handoff: true })
+    await expect(dispatchInboundToAiReply(ARGS)).resolves.toBeUndefined()
+    expect(h.state.updatePayload).toMatchObject({
+      ai_autoreply_disabled: true,
+      assigned_agent_id: 'agent-7',
+    })
+  })
+})
+
+describe('dispatchNonTextInboundHandoff', () => {
+  const NT = {
+    accountId: 'acct-1',
+    conversationId: 'conv-1',
+    contactId: 'contact-1',
+    configOwnerUserId: 'user-1',
+  }
+
+  it('hands a voice note to the configured agent and tells the customer', async () => {
+    h.loadAiConfig.mockResolvedValue(aiConfig({ handoffAgentId: 'agent-7' }))
+    await dispatchNonTextInboundHandoff({ ...NT, messageType: 'audio' })
+    expect(h.generateReply).not.toHaveBeenCalled()
+    expect(h.state.updatePayload).toMatchObject({
+      ai_autoreply_disabled: true,
+      assigned_agent_id: 'agent-7',
+    })
+    expect(h.state.updatePayload?.ai_handoff_summary).toContain('nota de voz')
+    expect(h.engineSendText).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignores text messages', async () => {
+    await dispatchNonTextInboundHandoff({ ...NT, messageType: 'text' })
+    expect(h.state.updatePayload).toBeNull()
+    expect(h.engineSendText).not.toHaveBeenCalled()
+  })
+
+  it('does nothing when auto-reply is off', async () => {
+    h.loadAiConfig.mockResolvedValue(aiConfig({ autoReplyEnabled: false }))
+    await dispatchNonTextInboundHandoff({ ...NT, messageType: 'image' })
+    expect(h.state.updatePayload).toBeNull()
+    expect(h.engineSendText).not.toHaveBeenCalled()
+  })
+
+  it('does nothing when a human already owns the thread', async () => {
+    h.state.conv = {
+      assigned_agent_id: 'agent-9',
+      ai_autoreply_disabled: false,
+      ai_reply_count: 0,
+    }
+    await dispatchNonTextInboundHandoff({ ...NT, messageType: 'document' })
+    expect(h.state.updatePayload).toBeNull()
+    expect(h.engineSendText).not.toHaveBeenCalled()
+  })
+
+  it('does nothing when the thread was already handed off', async () => {
+    h.state.conv = {
+      assigned_agent_id: null,
+      ai_autoreply_disabled: true,
+      ai_reply_count: 2,
+    }
+    await dispatchNonTextInboundHandoff({ ...NT, messageType: 'audio' })
+    expect(h.state.updatePayload).toBeNull()
+    expect(h.engineSendText).not.toHaveBeenCalled()
   })
 })
