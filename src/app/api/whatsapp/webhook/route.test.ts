@@ -5,6 +5,7 @@ const h = vi.hoisted(() => ({
   runAutomationsForTrigger: vi.fn(),
   dispatchInboundToFlows: vi.fn(),
   dispatchInboundToAiReply: vi.fn(),
+  dispatchNonTextInboundHandoff: vi.fn(),
   dispatchWebhookEvent: vi.fn(),
   state: {
     // Result the message upsert's .select() resolves to. A genuine insert
@@ -274,6 +275,9 @@ vi.mock('@/lib/flows/engine', () => ({
 }))
 vi.mock('@/lib/ai/auto-reply', () => ({
   dispatchInboundToAiReply: h.dispatchInboundToAiReply,
+  dispatchNonTextInboundHandoff: h.dispatchNonTextInboundHandoff,
+  isNonTextHandoffType: (t: string) =>
+    ['audio', 'image', 'video', 'document', 'sticker', 'location'].includes(t),
 }))
 vi.mock('@/lib/webhooks/deliver', () => ({
   dispatchWebhookEvent: h.dispatchWebhookEvent,
@@ -395,6 +399,7 @@ beforeEach(() => {
   })
   h.dispatchInboundToFlows.mockResolvedValue({ consumed: false })
   h.dispatchInboundToAiReply.mockResolvedValue(undefined)
+  h.dispatchNonTextInboundHandoff.mockResolvedValue(undefined)
   h.dispatchWebhookEvent.mockResolvedValue(undefined)
   h.runAutomationsForTrigger.mockImplementation(() => {
     h.state.automationStarted++

@@ -16,7 +16,11 @@ import { reopenClosedConversation } from '@/lib/conversations/reopen'
 import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature'
 import { runAutomationsForTrigger } from '@/lib/automations/engine'
 import { dispatchInboundToFlows } from '@/lib/flows/engine'
-import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply'
+import {
+  dispatchInboundToAiReply,
+  dispatchNonTextInboundHandoff,
+  isNonTextHandoffType,
+} from '@/lib/ai/auto-reply'
 import { dispatchWebhookEvent } from '@/lib/webhooks/deliver'
 import {
   handleTemplateWebhookChange,
@@ -959,7 +963,21 @@ async function processMessage(
   // the account has enabled it. Awaited inside `after()` (same reason as
   // the webhook dispatch below); `dispatchInboundToAiReply` owns its
   // eligibility gates + try/catch and never throws.
-  if (!flowConsumed && !interactiveReplyId && inboundText.trim()) {
+  //
+  // Non-text inbound the bot can't read (voice note, photo, document…)
+  // goes to a human instead of being answered from a stale text
+  // context or silently ignored. A photo caption no longer triggers the
+  // LLM on its own — the bot never sees the image it describes.
+  const nonTextInbound = isNonTextHandoffType(message.type)
+  if (!flowConsumed && !interactiveReplyId && nonTextInbound) {
+    await dispatchNonTextInboundHandoff({
+      accountId,
+      conversationId: conversation.id,
+      contactId: contactRecord.id,
+      configOwnerUserId,
+      messageType: message.type,
+    })
+  } else if (!flowConsumed && !interactiveReplyId && inboundText.trim()) {
     await dispatchInboundToAiReply({
       accountId,
       conversationId: conversation.id,
