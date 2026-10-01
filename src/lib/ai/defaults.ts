@@ -54,8 +54,13 @@ export function buildSystemPrompt(args: {
   mode: 'draft' | 'auto_reply'
   /** Knowledge-base excerpts retrieved for the current question. */
   knowledge?: string[]
+  /**
+   * One line per active model card (`- slug: Name (…)`). Auto-reply
+   * only: teaches the `[[FICHA:slug]]` marker that attaches the card.
+   */
+  modelCards?: string[]
 }): string {
-  const { userPrompt, mode, knowledge } = args
+  const { userPrompt, mode, knowledge, modelCards } = args
   const parts: string[] = [
     'You are a customer-messaging assistant for a business that uses a WhatsApp CRM. ' +
       'You are shown the recent WhatsApp conversation between the business (assistant) and a customer (user). ' +
@@ -74,6 +79,16 @@ export function buildSystemPrompt(args: {
 
   if (userPrompt && userPrompt.trim()) {
     parts.push(`Business context and instructions:\n${userPrompt.trim()}`)
+  }
+
+  if (mode === 'auto_reply' && modelCards && modelCards.length > 0) {
+    parts.push(
+      'Model cards: the business has a visual card (image, size, rooms, floors and reply buttons) for each of these models:\n' +
+        `${modelCards.join('\n')}\n` +
+        'When the customer asks about one specific model, or shows interest in it, attach its card by writing [[FICHA:slug]] on its own line at the end of your reply, using the slug from the list. ' +
+        'Attach at most 2 cards per reply and never the same card twice in a row. Do not attach cards when the customer only asks a general question or when listing all models — name them in text instead. ' +
+        'Keep the text short when you attach a card, since the card already shows the details. Never mention the marker or the word "slug" to the customer.',
+    )
   }
 
   if (knowledge && knowledge.length > 0) {

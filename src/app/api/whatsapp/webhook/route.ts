@@ -18,9 +18,11 @@ import { runAutomationsForTrigger } from '@/lib/automations/engine'
 import { dispatchInboundToFlows } from '@/lib/flows/engine'
 import {
   dispatchInboundToAiReply,
+  dispatchModelCardReply,
   dispatchNonTextInboundHandoff,
   isNonTextHandoffType,
 } from '@/lib/ai/auto-reply'
+import { parseCardReplyId } from '@/lib/model-cards/format'
 import { dispatchWebhookEvent } from '@/lib/webhooks/deliver'
 import {
   handleTemplateWebhookChange,
@@ -969,7 +971,21 @@ async function processMessage(
   // context or silently ignored. A photo caption no longer triggers the
   // LLM on its own — the bot never sees the image it describes.
   const nonTextInbound = isNonTextHandoffType(message.type)
-  if (!flowConsumed && !interactiveReplyId && nonTextInbound) {
+  // A tap on a model-card button (`card:<slug>:<action>`) gets its own
+  // handler: send the brochure, let the bot schedule the visit, or hand
+  // the thread to an advisor. See src/lib/model-cards.
+  const cardReply = parseCardReplyId(interactiveReplyId)
+  if (!flowConsumed && cardReply) {
+    await dispatchModelCardReply({
+      accountId,
+      conversationId: conversation.id,
+      contactId: contactRecord.id,
+      configOwnerUserId,
+      slug: cardReply.slug,
+      action: cardReply.action,
+      inboundMessageId: message.id,
+    })
+  } else if (!flowConsumed && !interactiveReplyId && nonTextInbound) {
     await dispatchNonTextInboundHandoff({
       accountId,
       conversationId: conversation.id,

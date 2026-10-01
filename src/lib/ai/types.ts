@@ -60,6 +60,12 @@ export interface GenerateResult {
   text: string
   /** True when the model asked to hand off to a human (auto-reply mode). */
   handoff: boolean
+  /**
+   * Model-card slugs the model asked to attach (`[[FICHA:slug]]`), in
+   * order, already stripped from `text`. Not yet checked against the
+   * account's active cards.
+   */
+  cards: string[]
   /** Provider token usage for this call, or null when unavailable. */
   usage: AiUsage | null
 }

@@ -44,6 +44,15 @@ export function InteractivePreview({
         className,
       )}
     >
+      {payload.kind === "buttons" && payload.header_image_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={payload.header_image_url}
+          alt=""
+          className="block max-h-48 w-full object-cover"
+          loading="lazy"
+        />
+      ) : null}
       <div className="px-3 py-2">
         {payload.header ? (
           <p className="mb-1 break-words text-sm font-semibold">

@@ -296,7 +296,11 @@ interface SendInteractiveButtonsEngineArgs {
   bodyText: string
   buttons: InteractiveButton[]
   headerText?: string
+  /** Public image URL for an image header (model cards). */
+  headerImageUrl?: string
   footerText?: string
+  /** Badge the persisted row as an AI reply (model cards sent by the bot). */
+  aiGenerated?: boolean
 }
 
 interface SendInteractiveListEngineArgs {
@@ -384,6 +388,7 @@ async function sendInteractiveViaMeta(
         bodyText: input.bodyText,
         buttons: input.buttons,
         headerText: input.headerText,
+        headerImageUrl: input.headerImageUrl,
         footerText: input.footerText,
       })
       return r.messageId
@@ -443,6 +448,7 @@ async function sendInteractiveViaMeta(
           kind: 'buttons',
           body: input.bodyText,
           header: input.headerText,
+          header_image_url: input.headerImageUrl,
           footer: input.footerText,
           buttons: input.buttons,
         }
@@ -463,6 +469,7 @@ async function sendInteractiveViaMeta(
     interactive_payload: interactivePayload,
     message_id: waMessageId,
     status: 'sent',
+    ai_generated: input.kind === 'buttons' ? (input.aiGenerated ?? false) : false,
   })
   if (msgErr) {
     throw new Error(`sent to Meta but DB insert failed: ${msgErr.message}`)

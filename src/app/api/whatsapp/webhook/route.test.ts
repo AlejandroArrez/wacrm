@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   dispatchInboundToFlows: vi.fn(),
   dispatchInboundToAiReply: vi.fn(),
   dispatchNonTextInboundHandoff: vi.fn(),
+  dispatchModelCardReply: vi.fn(),
   dispatchWebhookEvent: vi.fn(),
   state: {
     // Result the message upsert's .select() resolves to. A genuine insert
@@ -276,6 +277,7 @@ vi.mock('@/lib/flows/engine', () => ({
 vi.mock('@/lib/ai/auto-reply', () => ({
   dispatchInboundToAiReply: h.dispatchInboundToAiReply,
   dispatchNonTextInboundHandoff: h.dispatchNonTextInboundHandoff,
+  dispatchModelCardReply: h.dispatchModelCardReply,
   isNonTextHandoffType: (t: string) =>
     ['audio', 'image', 'video', 'document', 'sticker', 'location'].includes(t),
 }))
@@ -400,6 +402,7 @@ beforeEach(() => {
   h.dispatchInboundToFlows.mockResolvedValue({ consumed: false })
   h.dispatchInboundToAiReply.mockResolvedValue(undefined)
   h.dispatchNonTextInboundHandoff.mockResolvedValue(undefined)
+  h.dispatchModelCardReply.mockResolvedValue(undefined)
   h.dispatchWebhookEvent.mockResolvedValue(undefined)
   h.runAutomationsForTrigger.mockImplementation(() => {
     h.state.automationStarted++
@@ -516,6 +519,49 @@ describe('inbound webhook: template quick-reply buttons (#478)', () => {
       content_text: 'Track my order',
       interactive_reply_id: 'Track my order',
     })
+  })
+})
+
+describe('inbound webhook: model card buttons', () => {
+  const cardTap = {
+    id: 'wamid.CARD1',
+    from: '15551230000',
+    timestamp: '1700000000',
+    type: 'interactive',
+    interactive: {
+      type: 'button_reply',
+      button_reply: { id: 'card:atrium:visit', title: 'Agendar visita' },
+    },
+  }
+
+  it('routes a card tap to the model-card handler, not the plain AI path', async () => {
+    await runWebhook(cardTap)
+
+    expect(h.dispatchModelCardReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        slug: 'atrium',
+        action: 'visit',
+        inboundMessageId: 'wamid.CARD1',
+      }),
+    )
+    expect(h.dispatchInboundToAiReply).not.toHaveBeenCalled()
+  })
+
+  it('leaves other button taps alone', async () => {
+    await runWebhook({
+      ...cardTap,
+      interactive: {
+        type: 'button_reply',
+        button_reply: { id: 'MENU_SALES', title: 'Ventas' },
+      },
+    })
+    expect(h.dispatchModelCardReply).not.toHaveBeenCalled()
+  })
+
+  it('does not handle the tap when a flow consumed it', async () => {
+    h.dispatchInboundToFlows.mockResolvedValue({ consumed: true })
+    await runWebhook(cardTap)
+    expect(h.dispatchModelCardReply).not.toHaveBeenCalled()
   })
 })
 

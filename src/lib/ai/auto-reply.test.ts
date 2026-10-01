@@ -10,6 +10,8 @@ const h = vi.hoisted(() => ({
   engineSendText: vi.fn(),
   loadAccountMetaCredentials: vi.fn(),
   sendTypingIndicator: vi.fn(),
+  loadActiveModelCards: vi.fn(),
+  sendModelCards: vi.fn(),
   state: {
     conv: null as Record<string, unknown> | null,
     autoResponders: [] as { id: string }[],
@@ -29,6 +31,11 @@ vi.mock('@/lib/flows/meta-send', () => ({
 }))
 vi.mock('@/lib/whatsapp/meta-api', () => ({
   sendTypingIndicator: h.sendTypingIndicator,
+}))
+vi.mock('@/lib/model-cards/server', () => ({
+  loadActiveModelCards: h.loadActiveModelCards,
+  sendModelCards: h.sendModelCards,
+  handleModelCardReply: vi.fn(),
 }))
 vi.mock('./admin-client', () => ({
   supabaseAdmin: () => ({
@@ -114,6 +121,8 @@ beforeEach(() => {
     accessToken: 'tok',
   })
   h.sendTypingIndicator.mockResolvedValue(undefined)
+  h.loadActiveModelCards.mockResolvedValue([])
+  h.sendModelCards.mockResolvedValue(0)
 })
 
 describe('dispatchInboundToAiReply — eligibility gates', () => {
@@ -397,5 +406,70 @@ describe('dispatchNonTextInboundHandoff', () => {
     await dispatchNonTextInboundHandoff({ ...NT, messageType: 'audio' })
     expect(h.state.updatePayload).toBeNull()
     expect(h.engineSendText).not.toHaveBeenCalled()
+  })
+})
+
+describe('dispatchInboundToAiReply — model cards', () => {
+  const atrium = {
+    id: 'card-1',
+    account_id: 'acc-1',
+    slug: 'atrium',
+    name: 'Atrium',
+    area_m2: '74.44',
+    terrace_m2: '7.78',
+    bedrooms: '2.0',
+    bathrooms: '1.0',
+    floors_text: '7 a 14',
+    description: null,
+    image_url: '/fichas/porta-magna/atrium.jpg',
+    brochure_url: null,
+    brochure_filename: null,
+    active: true,
+    sort_order: 1,
+  }
+
+  it('lists the active cards in the system prompt', async () => {
+    h.loadActiveModelCards.mockResolvedValue([atrium])
+    await dispatchInboundToAiReply(ARGS)
+    const systemPrompt = h.generateReply.mock.calls[0][0].systemPrompt as string
+    expect(systemPrompt).toContain('[[FICHA:slug]]')
+    expect(systemPrompt).toContain('- atrium: Atrium')
+  })
+
+  it('omits the card instructions when the account has no cards', async () => {
+    await dispatchInboundToAiReply(ARGS)
+    const systemPrompt = h.generateReply.mock.calls[0][0].systemPrompt as string
+    expect(systemPrompt).not.toContain('[[FICHA:')
+  })
+
+  it('sends the text first and then the requested card', async () => {
+    h.loadActiveModelCards.mockResolvedValue([atrium])
+    h.generateReply.mockResolvedValue({ text: 'Te comparto el Atrium.', handoff: false, cards: ['atrium'] })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.engineSendText).toHaveBeenCalledTimes(1)
+    expect(h.sendModelCards).toHaveBeenCalledWith(
+      expect.objectContaining({ conversationId: 'conv-1' }),
+      [atrium],
+    )
+    expect(h.engineSendText.mock.invocationCallOrder[0]).toBeLessThan(
+      h.sendModelCards.mock.invocationCallOrder[0],
+    )
+  })
+
+  it('drops slugs that are not active cards', async () => {
+    h.loadActiveModelCards.mockResolvedValue([atrium])
+    h.generateReply.mockResolvedValue({ text: 'Hola', handoff: false, cards: ['domus'] })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.sendModelCards).not.toHaveBeenCalled()
+    expect(h.engineSendText).toHaveBeenCalled()
+  })
+
+  it('sends a card-only reply without handing off', async () => {
+    h.loadActiveModelCards.mockResolvedValue([atrium])
+    h.generateReply.mockResolvedValue({ text: '', handoff: false, cards: ['atrium'] })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.engineSendText).not.toHaveBeenCalled()
+    expect(h.sendModelCards).toHaveBeenCalled()
+    expect(h.state.updatePayload).toBeNull()
   })
 })

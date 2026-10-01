@@ -10,8 +10,10 @@ interface DbMessage {
 /**
  * Fetch the last N text messages of a conversation and map them to the
  * provider-neutral chat shape. Customer messages become `user`; agent
- * and bot messages become `assistant`. Non-text messages (media,
- * templates, interactive) are excluded — they carry no text to model.
+ * and bot messages become `assistant`. Interactive messages are kept:
+ * a bot-sent card/menu carries its body text and a customer tap carries
+ * the button title ("Agendar visita"), both of which the model needs to
+ * follow the thread. Media and templates are excluded.
  *
  * Ordered oldest-first (chronological) so the transcript reads
  * naturally and the most recent customer message lands last.
@@ -25,7 +27,7 @@ export async function buildConversationContext(
     .from('messages')
     .select('sender_type, content_text')
     .eq('conversation_id', conversationId)
-    .eq('content_type', 'text')
+    .in('content_type', ['text', 'interactive'])
     .order('created_at', { ascending: false })
     .limit(limit)
 

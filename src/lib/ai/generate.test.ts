@@ -44,6 +44,7 @@ describe('parseGeneration', () => {
       text: 'Hello there',
       handoff: false,
       usage: null,
+      cards: [],
     })
   })
 
@@ -52,11 +53,13 @@ describe('parseGeneration', () => {
       text: '',
       handoff: true,
       usage: null,
+      cards: [],
     })
     expect(parseGeneration('Let me get a human [[HANDOFF]]')).toEqual({
       text: 'Let me get a human',
       handoff: true,
       usage: null,
+      cards: [],
     })
   })
 
@@ -66,6 +69,18 @@ describe('parseGeneration', () => {
       text: 'Hi',
       handoff: false,
       usage,
+      cards: [],
+    })
+  })
+
+  it('pulls model-card markers out of the text', () => {
+    expect(
+      parseGeneration('Te comparto el modelo Atrium.\n[[FICHA:atrium]]'),
+    ).toEqual({
+      text: 'Te comparto el modelo Atrium.',
+      handoff: false,
+      usage: null,
+      cards: ['atrium'],
     })
   })
 })
@@ -90,6 +105,7 @@ describe('generateReply — OpenAI', () => {
       text: 'Sure — happy to help!',
       handoff: false,
       usage: { promptTokens: 42, completionTokens: 8, totalTokens: 50 },
+      cards: [],
     })
     const [url, opts] = fetchMock.mock.calls[0]
     expect(url).toContain('api.openai.com')
@@ -149,6 +165,7 @@ describe('generateReply — Anthropic', () => {
       text: 'Hi there!',
       handoff: false,
       usage: { promptTokens: 30, completionTokens: 6, totalTokens: 36 },
+      cards: [],
     })
     const [url, opts] = fetchMock.mock.calls[0]
     expect(url).toContain('api.anthropic.com')

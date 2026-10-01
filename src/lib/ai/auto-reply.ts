@@ -13,6 +13,12 @@ import {
 } from '@/lib/flows/meta-send'
 import { sendTypingIndicator } from '@/lib/whatsapp/meta-api'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { cardPromptLine, type CardAction } from '@/lib/model-cards/format'
+import {
+  handleModelCardReply,
+  loadActiveModelCards,
+  sendModelCards,
+} from '@/lib/model-cards/server'
 
 interface DispatchArgs {
   /** Tenancy key — drives config, contact, and whatsapp_config lookups. */
@@ -146,13 +152,19 @@ export async function dispatchInboundToAiReply(
       latestUserMessage(messages),
     )
 
+    // Model cards ("fichas") the bot may attach. Empty when the account
+    // has none or the table doesn't exist yet — the prompt then omits
+    // the card instructions entirely.
+    const modelCards = await loadActiveModelCards(db, accountId)
+
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       mode: 'auto_reply',
       knowledge,
+      modelCards: modelCards.map(cardPromptLine),
     })
 
-    const { text, handoff, usage } = await generateReply({
+    const { text, handoff, usage, cards } = await generateReply({
       config,
       systemPrompt,
       messages,
@@ -172,7 +184,13 @@ export async function dispatchInboundToAiReply(
       usage,
     })
 
-    if (handoff || !text) {
+    // Only cards that exist and are active for this account; anything
+    // else the model wrote is dropped silently.
+    const cardsToSend = (cards ?? [])
+      .map((slug) => modelCards.find((c) => c.slug === slug))
+      .filter((c): c is NonNullable<typeof c> => !!c)
+
+    if (handoff || (!text && cardsToSend.length === 0)) {
       // The model can't (or shouldn't) answer — stop auto-replying on
       // this thread, hand it to a human, and tell the customer so the
       // thread doesn't just go silent. See handOffConversation.
@@ -213,16 +231,92 @@ export async function dispatchInboundToAiReply(
     }
     if (claimed !== true) return // lost the per-conversation cap race
 
-    await engineSendText({
+    if (text) {
+      await engineSendText({
+        accountId,
+        userId: configOwnerUserId,
+        conversationId,
+        contactId,
+        text,
+        aiGenerated: true,
+      })
+    }
+
+    // Cards go after the text so the customer reads the answer first.
+    // Best-effort: a failed card is logged and skipped.
+    if (cardsToSend.length > 0) {
+      await sendModelCards(
+        { accountId, userId: configOwnerUserId, conversationId, contactId },
+        cardsToSend,
+      )
+    }
+  } catch (err) {
+    console.error('[ai auto-reply] dispatch failed:', err)
+  }
+}
+
+/**
+ * The customer tapped a button on a model card (`card:<slug>:<action>`).
+ * Called from the webhook instead of the plain AI path. Owns its
+ * try/catch and never throws.
+ *
+ *   brochure → the PDF goes out even if a human already owns the thread
+ *              (the customer asked for it; it's not a conversation turn)
+ *   visit    → normal AI turn: the tap ("Agendar visita") is in the
+ *              context, so the bot follows up on day and time. Skipped
+ *              by the usual gates if a human owns the thread.
+ *   advisor  → hand off to a human with a note naming the model.
+ */
+export async function dispatchModelCardReply(args: {
+  accountId: string
+  conversationId: string
+  contactId: string
+  configOwnerUserId: string
+  slug: string
+  action: CardAction
+  inboundMessageId?: string
+}): Promise<void> {
+  const { accountId, conversationId, contactId, configOwnerUserId } = args
+  try {
+    const db = supabaseAdmin()
+    await handleModelCardReply({
+      db,
       accountId,
       userId: configOwnerUserId,
       conversationId,
       contactId,
-      text,
-      aiGenerated: true,
+      slug: args.slug,
+      action: args.action,
+      handlers: {
+        replyWithAi: () =>
+          dispatchInboundToAiReply({
+            accountId,
+            conversationId,
+            contactId,
+            configOwnerUserId,
+            inboundMessageId: args.inboundMessageId,
+          }),
+        handOff: async (note) => {
+          const config = await loadAiConfig(db, accountId)
+          const { data: conv } = await db
+            .from('conversations')
+            .select('assigned_agent_id')
+            .eq('id', conversationId)
+            .maybeSingle()
+          await handOffConversation(db, {
+            accountId,
+            conversationId,
+            contactId,
+            configOwnerUserId,
+            handoffAgentId: config?.handoffAgentId ?? null,
+            assignedAgentId: conv?.assigned_agent_id ?? null,
+            summary: note,
+          })
+        },
+      },
     })
   } catch (err) {
-    console.error('[ai auto-reply] dispatch failed:', err)
+    console.error('[ai auto-reply] model card reply failed:', err)
   }
 }
 

@@ -8,6 +8,7 @@ import {
 import { HANDOFF_SENTINEL, aiRequestTimeoutMs } from './defaults'
 import { generateOpenAi } from './providers/openai'
 import { generateAnthropic } from './providers/anthropic'
+import { extractCardMarkers } from '@/lib/model-cards/format'
 
 export interface GenerateArgs {
   config: AiConfig
@@ -63,6 +64,9 @@ export function parseGeneration(
   usage: AiUsage | null = null,
 ): GenerateResult {
   const handoff = raw.includes(HANDOFF_SENTINEL)
-  const text = raw.split(HANDOFF_SENTINEL).join('').trim()
-  return { text, handoff, usage }
+  const withoutHandoff = raw.split(HANDOFF_SENTINEL).join('').trim()
+  // Model-card markers (`[[FICHA:slug]]`) are pulled out of the text the
+  // customer sees and returned separately; see src/lib/model-cards.
+  const { text, slugs } = extractCardMarkers(withoutHandoff)
+  return { text, handoff, usage, cards: slugs }
 }
