@@ -49,9 +49,9 @@ export async function POST(
 
   try {
     // Same gate as the batch send endpoint: running a broadcast is a
-    // write, and viewers are read-only. Resuming is no different — it
+    // write reserved to admins (migration 044). Resuming is no different — it
     // puts real messages on real phones.
-    const { supabase, accountId, userId } = await requireRole('agent');
+    const { supabase, accountId, userId } = await requireRole('admin');
 
     const limit = checkRateLimit(
       `broadcast-resume:${userId}`,

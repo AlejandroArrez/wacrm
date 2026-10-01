@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { useCan } from "@/hooks/use-can";
 import { useTotalUnread } from "@/hooks/use-total-unread";
 import { useUnreadNotifications } from "@/hooks/use-unread-notifications";
 import {
@@ -87,6 +88,12 @@ interface NavItem {
    * Purely informational — doesn't affect routing or access.
    */
   beta?: boolean;
+  /**
+   * Hidden from advisors (role `agent`). Broadcasts, automations, flows
+   * and AI agents act on every contact of the account, so only admins
+   * manage them; viewers still see them read-only (migration 044).
+   */
+  restricted?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -95,10 +102,10 @@ const navItems: NavItem[] = [
   { href: "/notifications", labelKey: "notifications", icon: Bell },
   { href: "/contacts", labelKey: "contacts", icon: Users },
   { href: "/pipelines", labelKey: "pipelines", icon: GitBranch },
-  { href: "/broadcasts", labelKey: "broadcasts", icon: Radio },
-  { href: "/automations", labelKey: "automations", icon: Zap },
-  { href: "/flows", labelKey: "flows", icon: Workflow, beta: true },
-  { href: "/agents", labelKey: "aiAgents", icon: Bot },
+  { href: "/broadcasts", labelKey: "broadcasts", icon: Radio, restricted: true },
+  { href: "/automations", labelKey: "automations", icon: Zap, restricted: true },
+  { href: "/flows", labelKey: "flows", icon: Workflow, beta: true, restricted: true },
+  { href: "/agents", labelKey: "aiAgents", icon: Bot, restricted: true },
 ];
 
 const bottomNavItems = [
@@ -119,6 +126,10 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const { profile, profileLoading, account, accountRole, signOut } = useAuth();
   const totalUnread = useTotalUnread();
   const unreadNotifications = useUnreadNotifications();
+  const seesRestricted = useCan("see-restricted-sections");
+  const visibleNavItems = navItems.filter(
+    (item) => !item.restricted || seesRestricted,
+  );
   // Only surface the account-name strip when it actually carries
   // information. A solo user's personal account is named after them
   // (the 017 signup trigger seeds it from `full_name`), so showing it
@@ -208,7 +219,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         {/* Main navigation */}
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           <ul className="flex flex-col gap-1">
-            {navItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const isActive =
                 pathname === item.href ||
                 (item.href !== "/dashboard" && pathname.startsWith(item.href));

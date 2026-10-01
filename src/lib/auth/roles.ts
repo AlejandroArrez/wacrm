@@ -124,3 +124,36 @@ export function canAssignProspects(role: AccountRole): boolean {
 export function seesAllProspects(role: AccountRole): boolean {
   return role !== "agent";
 }
+
+/**
+ * Owner / admin: create, edit, send or delete broadcasts, automations
+ * and flows. These run with system privileges and reach every contact,
+ * so advisors (role `agent`) must not manage them (migration 044).
+ */
+export function canManageCampaigns(role: AccountRole): boolean {
+  return hasMinRole(role, "admin");
+}
+
+/**
+ * Everyone except advisors sees the restricted sections (broadcasts,
+ * automations, flows, AI agents and workspace settings). Viewers keep
+ * read-only access; advisors don't see them at all.
+ */
+export function seesRestrictedSections(role: AccountRole): boolean {
+  return role !== "agent";
+}
+
+/** App routes hidden from advisors. Prefix match. */
+export const ADVISOR_HIDDEN_ROUTES: readonly string[] = [
+  "/broadcasts",
+  "/automations",
+  "/flows",
+  "/agents",
+] as const;
+
+/** True iff `pathname` is one of the routes hidden from advisors. */
+export function isAdvisorHiddenRoute(pathname: string): boolean {
+  return ADVISOR_HIDDEN_ROUTES.some(
+    (r) => pathname === r || pathname.startsWith(`${r}/`),
+  );
+}

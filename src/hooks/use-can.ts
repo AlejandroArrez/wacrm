@@ -4,12 +4,14 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   canAssignProspects,
   canDeleteAccount,
+  canManageCampaigns,
   canEditSettings,
   canManageMembers,
   canSendMessages,
   canTransferOwnership,
   canViewOnly,
   seesAllProspects,
+  seesRestrictedSections,
 } from "@/lib/auth/roles";
 
 /**
@@ -26,7 +28,9 @@ export type CanAction =
   | "delete-account"
   | "transfer-ownership"
   | "assign-prospects"
-  | "see-all-prospects";
+  | "see-all-prospects"
+  | "manage-campaigns"
+  | "see-restricted-sections";
 
 /**
  * Inline alternative to `<RequireRole>` for places that need a
@@ -62,6 +66,10 @@ export function useCan(action: CanAction): boolean {
       return canAssignProspects(accountRole);
     case "see-all-prospects":
       return seesAllProspects(accountRole);
+    case "manage-campaigns":
+      return canManageCampaigns(accountRole);
+    case "see-restricted-sections":
+      return seesRestrictedSections(accountRole);
     default: {
       // Exhaustiveness check — adding a new `CanAction` without a
       // case here fails the typecheck because TS narrows `action`

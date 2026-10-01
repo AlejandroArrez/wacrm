@@ -19,6 +19,7 @@ import { DealsSettings } from '@/components/settings/deals-settings';
 import { MembersTab } from '@/components/settings/members-tab';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
 import {
+  ADVISOR_SECTIONS,
   resolveSection,
   type SettingsSection,
 } from '@/components/settings/settings-sections';
@@ -42,7 +43,7 @@ export default function SettingsPage() {
 function SettingsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { defaultCurrency } = useAuth();
+  const { defaultCurrency, accountRole, profileLoading } = useAuth();
   const { mode } = useTheme();
   const t = useTranslations('Settings');
 
@@ -50,7 +51,11 @@ function SettingsPageInner() {
   // section — deep-linkable, and it keeps the existing links in the
   // app sidebar/header working. Legacy tab values (tags, custom-fields)
   // resolve onto their new home; unknown/empty → the Overview landing.
-  const section = resolveSection(searchParams.get('tab'));
+  //
+  // Advisors (role `agent`) only get their own account sections; any
+  // other `?tab=` (including the Overview default) lands on Profile.
+  const allowed = accountRole === 'agent' ? ADVISOR_SECTIONS : undefined;
+  const section = resolveSection(searchParams.get('tab'), allowed);
 
   const go = (next: SettingsSection) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -95,8 +100,15 @@ function SettingsPageInner() {
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[236px_minmax(0,1fr)] lg:items-start">
-        <SettingsRail active={section} onSelect={go} hints={hints} />
-        <div className="min-w-0">{panel[section]}</div>
+        <SettingsRail
+          active={section}
+          onSelect={go}
+          hints={hints}
+          allowed={allowed}
+        />
+        {/* Wait for the role before rendering a panel so an advisor never
+            gets a flash of the workspace Overview. */}
+        <div className="min-w-0">{profileLoading ? null : panel[section]}</div>
       </div>
     </div>
   );

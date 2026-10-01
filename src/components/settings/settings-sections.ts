@@ -67,6 +67,17 @@ export const RAIL_GROUPS: { label: string | null; group: SectionMeta['group'] }[
   { label: 'Workspace', group: 'workspace' },
 ];
 
+/**
+ * Sections an advisor (role `agent`) may open: only their own account
+ * settings. Workspace sections and the Overview (which surfaces account
+ * status) are for admins and viewers.
+ */
+export const ADVISOR_SECTIONS: readonly SettingsSection[] = [
+  'profile',
+  'security',
+  'appearance',
+] as const;
+
 function isSection(value: string | null): value is SettingsSection {
   return !!value && (SETTINGS_SECTIONS as readonly string[]).includes(value);
 }
@@ -77,8 +88,13 @@ function isSection(value: string | null): value is SettingsSection {
  * merged "Fields & tags" section). Anything unknown falls back to the
  * Overview landing.
  */
-export function resolveSection(raw: string | null): SettingsSection {
-  if (raw === 'tags' || raw === 'custom-fields') return 'fields';
-  if (isSection(raw)) return raw;
-  return DEFAULT_SECTION;
+export function resolveSection(
+  raw: string | null,
+  allowed?: readonly SettingsSection[],
+): SettingsSection {
+  let section: SettingsSection = DEFAULT_SECTION;
+  if (raw === 'tags' || raw === 'custom-fields') section = 'fields';
+  else if (isSection(raw)) section = raw;
+  if (allowed && !allowed.includes(section)) return allowed[0];
+  return section;
 }

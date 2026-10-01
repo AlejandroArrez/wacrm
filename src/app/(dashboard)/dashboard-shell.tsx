@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -9,14 +9,16 @@ import { Header } from "@/components/layout/header";
 import { AccountAccessAlert } from "@/components/layout/account-access-alert";
 import { PresenceHeartbeat } from "@/components/presence/presence-heartbeat";
 import { BrowserNotificationsListener } from "@/components/notifications/browser-notifications-listener";
+import { isAdvisorHiddenRoute } from "@/lib/auth/roles";
 
 // Auth-gated dashboard shell. Extracted from the layout so the layout
 // itself can stay a server component and export metadata (noindex) —
 // client components can't export Next's metadata object.
 
 function DashboardShellInner({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, accountRole } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const t = useTranslations("DashboardShell");
 
   // Sidebar drawer state — only used on mobile. On lg+ the sidebar is
@@ -30,6 +32,16 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
     }
   }, [user, loading, router]);
 
+  // Advisors (role `agent`) don't get broadcasts, automations, flows or
+  // AI agents (migration 044). The sidebar already hides them; this
+  // catches a typed or bookmarked URL. The database and API enforce the
+  // same rule — this is only the navigation layer.
+  const advisorBlocked =
+    accountRole === "agent" && isAdvisorHiddenRoute(pathname);
+  useEffect(() => {
+    if (advisorBlocked) router.replace("/dashboard");
+  }, [advisorBlocked, router]);
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
@@ -41,7 +53,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user) return null;
+  if (!user || advisorBlocked) return null;
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">

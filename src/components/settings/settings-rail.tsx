@@ -26,10 +26,13 @@ export function SettingsRail({
   active,
   onSelect,
   hints,
+  allowed,
 }: {
   active: SettingsSection;
   onSelect: (section: SettingsSection) => void;
   hints?: Partial<Record<SettingsSection, ReactNode>>;
+  /** When set, only these sections are listed (advisor view). */
+  allowed?: readonly SettingsSection[];
 }) {
   const t = useTranslations('Settings');
   const activeRef = useRef<HTMLButtonElement>(null);
@@ -57,8 +60,11 @@ export function SettingsRail({
     >
       {RAIL_GROUPS.map(({ label, group }) => {
         const items = SETTINGS_SECTIONS.filter(
-          (s) => SECTION_META[s].group === group,
+          (s) =>
+            SECTION_META[s].group === group &&
+            (!allowed || allowed.includes(s)),
         );
+        if (items.length === 0) return null;
         return (
           <div
             key={group}

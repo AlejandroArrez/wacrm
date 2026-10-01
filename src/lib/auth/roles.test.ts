@@ -128,3 +128,33 @@ describe("capability predicates", () => {
     expect(canTransferOwnership("viewer")).toBe(false);
   });
 });
+
+describe("advisor restrictions (migration 044)", () => {
+  it("only admins and owners manage campaigns", async () => {
+    const { canManageCampaigns } = await import("./roles");
+    expect(canManageCampaigns("owner")).toBe(true);
+    expect(canManageCampaigns("admin")).toBe(true);
+    expect(canManageCampaigns("agent")).toBe(false);
+    expect(canManageCampaigns("viewer")).toBe(false);
+  });
+
+  it("hides restricted sections only from advisors", async () => {
+    const { seesRestrictedSections } = await import("./roles");
+    expect(seesRestrictedSections("owner")).toBe(true);
+    expect(seesRestrictedSections("admin")).toBe(true);
+    expect(seesRestrictedSections("viewer")).toBe(true);
+    expect(seesRestrictedSections("agent")).toBe(false);
+  });
+
+  it("matches hidden routes by prefix without false positives", async () => {
+    const { isAdvisorHiddenRoute } = await import("./roles");
+    expect(isAdvisorHiddenRoute("/broadcasts")).toBe(true);
+    expect(isAdvisorHiddenRoute("/broadcasts/new")).toBe(true);
+    expect(isAdvisorHiddenRoute("/automations/abc/logs")).toBe(true);
+    expect(isAdvisorHiddenRoute("/flows")).toBe(true);
+    expect(isAdvisorHiddenRoute("/agents")).toBe(true);
+    expect(isAdvisorHiddenRoute("/contacts")).toBe(false);
+    expect(isAdvisorHiddenRoute("/inbox")).toBe(false);
+    expect(isAdvisorHiddenRoute("/flowsx")).toBe(false);
+  });
+});
