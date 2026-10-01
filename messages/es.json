@@ -392,7 +392,8 @@
       "loadingTags": "Cargando etiquetas...",
       "noTagsAvailable": "No hay etiquetas disponibles. Crea etiquetas en Configuración.",
       "phoneRequired": "El número de teléfono es obligatorio",
-      "phoneNeedsCountryCode": "Incluye el código de país — el número debe empezar con + (p. ej. +5215512345678)"
+      "phoneNeedsCountryCode": "Incluye el código de país — el número debe empezar con + (p. ej. +5215512345678)",
+      "toastTakenByOther": "Este número ya lo tiene registrado otro asesor. Pide a dirección que te lo asigne."
     },
     "detailView": {
       "tabs": {
@@ -1370,7 +1371,13 @@
       "removeDialogDesc": "¿Quitar a <bold>{name}</bold> de la cuenta? Se cerrará su sesión en esta cuenta y recibirá una cuenta personal nueva en su próximo inicio de sesión. Su acceso no se elimina.",
       "cancel": "Cancelar",
       "removing": "Quitando...",
-      "removeBtn": "Quitar miembro"
+      "removeBtn": "Quitar miembro",
+      "advisorCodeLabel": "Clave de asesor",
+      "advisorCodePlaceholder": "CLAVE",
+      "advisorCodeHelp": "La misma clave que tiene el asesor en el plugin de WordPress. Los leads con esa clave se le asignan solos.",
+      "advisorCodeSaved": "Clave de asesor guardada",
+      "advisorCodeTaken": "Esa clave ya la usa otro miembro",
+      "advisorCodeInvalid": "Usa de 2 a 30 letras, números, - o _"
     },
     "invite": {
       "inviteCreated": "Invitación creada",
@@ -2026,5 +2033,25 @@
   },
   "DashboardShell": {
     "loading": "Cargando..."
+  },
+  "Prospects": {
+    "title": "Asesor",
+    "column": "Asesor",
+    "noOwner": "Sin asesor",
+    "noOwnerLong": "Sin asesor. Asígnalo a alguien del equipo.",
+    "expired": "Vencido",
+    "expiredOf": "Vencido · {name}",
+    "expiredLong": "Venció el plazo de {name}. Vuelve a asignarlo.",
+    "daysLeft": "{days, plural, one {Vence en # día} other {Vence en # días}}",
+    "activeLong": "{name} · {days, plural, one {vence en # día} other {vence en # días}} ({date})",
+    "pickOwner": "Asignar a…",
+    "renew": "Renovar",
+    "renewHelp": "Reinicia el plazo del mismo asesor",
+    "assigned": "Prospecto asignado",
+    "unassigned": "El prospecto quedó sin asesor",
+    "assignFailed": "No se pudo cambiar el asesor",
+    "filterAll": "Todos los asesores",
+    "filterNone": "Sin asesor",
+    "filterExpired": "Vencidos"
   }
 }

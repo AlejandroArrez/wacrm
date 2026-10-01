@@ -215,15 +215,29 @@ export function ContactForm({
       // normalizes equal). Surface it as the friendly duplicate notice
       // and, for new contacts, point the user at the existing record.
       if (isUniqueViolation(err)) {
-        toast.error(t('toastConflict'));
         if (!isEdit && accountId) {
           const existing = await findExistingContact(
             supabase,
             accountId,
             phone.trim(),
           );
-          if (existing) setDupMatch({ contact: existing, exact: true });
+          if (existing) {
+            toast.error(t('toastConflict'));
+            setDupMatch({ contact: existing, exact: true });
+            return;
+          }
+          // Not visible to this advisor: another advisor owns it, or it
+          // waits for direction to assign it (migration 043). Say so
+          // without revealing whose it is.
+          const { data: status } = await supabase.rpc('phone_registration_status', {
+            p_phone: phone.trim(),
+          });
+          if (status === 'taken') {
+            toast.error(t('toastTakenByOther'));
+            return;
+          }
         }
+        toast.error(t('toastConflict'));
         return;
       }
       const message = err instanceof Error ? err.message : t('toastError');

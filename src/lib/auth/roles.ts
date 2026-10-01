@@ -107,3 +107,20 @@ export function canDeleteAccount(role: AccountRole): boolean {
 export function canTransferOwnership(role: AccountRole): boolean {
   return role === "owner";
 }
+
+/**
+ * Owner / admin: assign a prospect to an advisor, take it back, or
+ * renew its ownership window (migration 043).
+ */
+export function canAssignProspects(role: AccountRole): boolean {
+  return hasMinRole(role, "admin");
+}
+
+/**
+ * Everyone except advisors (role `agent`) sees every prospect of the
+ * account. Advisors see only the prospects they currently own. Mirrors
+ * `sees_all_prospects()` in migration 043.
+ */
+export function seesAllProspects(role: AccountRole): boolean {
+  return role !== "agent";
+}

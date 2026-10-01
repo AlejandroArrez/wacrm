@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
+import { ProspectOwnerPanel } from "@/components/contacts/prospect-owner";
 import { useTranslations } from "next-intl";
 import { contactHandle } from "@/lib/whatsapp/wa-identity";
 
@@ -185,6 +186,11 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
           </div>
 
           {/* Divider */}
+          <div className="my-4 border-t border-border" />
+
+          {/* Prospect owner (migration 043) */}
+          <ProspectOwnerPanel contactId={contact.id} contact={contact} />
+
           <div className="my-4 border-t border-border" />
 
           {/* Tags */}

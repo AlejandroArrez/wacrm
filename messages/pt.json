@@ -392,7 +392,8 @@
       "loadingTags": "Carregando tags...",
       "noTagsAvailable": "Nenhuma tag disponível. Crie tags em Configurações.",
       "phoneRequired": "O número de telefone é obrigatório",
-      "phoneNeedsCountryCode": "Inclua o código do país — o número deve começar com + (ex.: +5511999990000)"
+      "phoneNeedsCountryCode": "Inclua o código do país — o número deve começar com + (ex.: +5511999990000)",
+      "toastTakenByOther": "Este número já está registrado por outro consultor. Peça à gestão para atribuí-lo a você."
     },
     "detailView": {
       "tabs": {
@@ -1370,7 +1371,13 @@
       "removeDialogDesc": "Remover <bold>{name}</bold> da conta? A pessoa será desconectada desta conta e receberá uma nova conta pessoal no próximo login. O login dela não é excluído.",
       "cancel": "Cancelar",
       "removing": "Removendo...",
-      "removeBtn": "Remover membro"
+      "removeBtn": "Remover membro",
+      "advisorCodeLabel": "Código do consultor",
+      "advisorCodePlaceholder": "CÓDIGO",
+      "advisorCodeHelp": "O mesmo código do consultor no plugin do WordPress. Leads com esse código são atribuídos automaticamente.",
+      "advisorCodeSaved": "Código salvo",
+      "advisorCodeTaken": "Outro membro já usa esse código",
+      "advisorCodeInvalid": "Use de 2 a 30 letras, números, - ou _"
     },
     "invite": {
       "inviteCreated": "Convite criado",
@@ -2026,5 +2033,25 @@
   },
   "DashboardShell": {
     "loading": "Carregando..."
+  },
+  "Prospects": {
+    "title": "Consultor",
+    "column": "Consultor",
+    "noOwner": "Sem consultor",
+    "noOwnerLong": "Sem consultor. Atribua a alguém da equipe.",
+    "expired": "Expirado",
+    "expiredOf": "Expirado · {name}",
+    "expiredLong": "O prazo de {name} expirou. Atribua novamente.",
+    "daysLeft": "{days, plural, one {Expira em # dia} other {Expira em # dias}}",
+    "activeLong": "{name} · {days, plural, one {expira em # dia} other {expira em # dias}} ({date})",
+    "pickOwner": "Atribuir a…",
+    "renew": "Renovar",
+    "renewHelp": "Reinicia o prazo do mesmo consultor",
+    "assigned": "Prospect atribuído",
+    "unassigned": "O prospect ficou sem consultor",
+    "assignFailed": "Não foi possível mudar o consultor",
+    "filterAll": "Todos os consultores",
+    "filterNone": "Sem consultor",
+    "filterExpired": "Expirados"
   }
 }

@@ -40,6 +40,7 @@ import {
   DollarSign,
   LayoutTemplate,
 } from 'lucide-react';
+import { ProspectOwnerPanel } from '@/components/contacts/prospect-owner';
 import { useTranslations } from 'next-intl';
 import { contactHandle } from '@/lib/whatsapp/wa-identity';
 import { parseInternationalPhone } from '@/lib/whatsapp/phone-utils';
@@ -458,6 +459,15 @@ export function ContactDetailView({
                   )}
                   {t('sendTemplateBtn')}
                 </Button>
+              </div>
+              <div className="mt-4">
+                <ProspectOwnerPanel
+                  contactId={contact.id}
+                  contact={contact}
+                  onChanged={(next) =>
+                    setContact((prev) => (prev ? { ...prev, ...next } : prev))
+                  }
+                />
               </div>
             </SheetHeader>
 

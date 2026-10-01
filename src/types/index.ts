@@ -46,6 +46,8 @@ export interface Profile {
    */
   account_role?: AccountRole;
   created_at: string;
+  /** Advisor code shared with the WordPress plugin (migration 043). */
+  advisor_code?: string | null;
 }
 
 // ============================================================
@@ -75,6 +77,8 @@ export interface AccountMember {
   avatar_url: string | null;
   role: AccountRole;
   joined_at: string;
+  /** Advisor code shared with the WordPress plugin (migration 043). */
+  advisor_code?: string | null;
 }
 
 /**
@@ -115,6 +119,11 @@ export interface Contact {
   /** WhatsApp username without the leading @. Display only: usernames
    *  are user-changeable, so they must never key a contact. */
   wa_username?: string | null;
+  /** Advisor who owns the prospect (auth user id). Migration 043. */
+  owner_id?: string | null;
+  owner_assigned_at?: string | null;
+  /** Last message, note or deal move by the owner. Restarts the window. */
+  owner_last_activity_at?: string | null;
   name?: string;
   email?: string;
   company?: string;

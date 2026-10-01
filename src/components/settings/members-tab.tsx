@@ -47,6 +47,7 @@ import {
 } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -65,6 +66,7 @@ import {
 import { useTranslations } from 'next-intl';
 import { RequireRole } from '@/components/auth/require-role';
 import { useAuth } from '@/hooks/use-auth';
+import { createClient } from '@/lib/supabase/client';
 import { usePresence } from '@/hooks/use-presence';
 import type { AccountRole } from '@/lib/auth/roles';
 import { presenceLabel, summarize } from '@/lib/presence';
@@ -83,6 +85,7 @@ interface Member {
   avatar_url: string | null;
   role: AccountRole;
   joined_at: string;
+  advisor_code?: string | null;
 }
 
 interface Invitation {
@@ -122,6 +125,78 @@ function fmtExpiresIn(iso: string, t: (key: string, values?: Record<string, stri
   if (days >= 1) return t('expiresInDays', { days });
   const hours = Math.max(1, Math.floor(ms / (60 * 60 * 1000)));
   return t('expiresInHours', { hours });
+}
+
+/**
+ * Advisor code (migration 043). Same code as the advisor has in the
+ * WordPress plugin, so leads the plugin tags `asesor:CODE` land with
+ * this member. Admins edit it inline; everyone else reads it.
+ */
+function AdvisorCodeField({
+  member,
+  editable,
+  onSaved,
+}: {
+  member: { user_id: string; role: AccountRole; advisor_code?: string | null };
+  editable: boolean;
+  onSaved: (code: string | null) => void;
+}) {
+  const t = useTranslations('Settings.members');
+  const saved = member.advisor_code ?? '';
+  const [value, setValue] = useState(saved);
+  const [busy, setBusy] = useState(false);
+
+  // Only advisors own prospects; other roles show nothing.
+  if (member.role !== 'agent') return null;
+
+  if (!editable) {
+    return saved ? (
+      <span className="rounded-md border border-border px-2 py-1 font-mono text-xs text-muted-foreground">
+        {saved}
+      </span>
+    ) : null;
+  }
+
+  async function save() {
+    const next = value.trim().toUpperCase();
+    if (next === saved) {
+      setValue(saved);
+      return;
+    }
+    setBusy(true);
+    const { error } = await createClient().rpc('set_member_advisor_code', {
+      p_user_id: member.user_id,
+      p_code: next || null,
+    });
+    setBusy(false);
+    if (error) {
+      toast.error(
+        error.code === '23505' ? t('advisorCodeTaken') : t('advisorCodeInvalid'),
+      );
+      setValue(saved);
+      return;
+    }
+    setValue(next);
+    onSaved(next || null);
+    toast.success(t('advisorCodeSaved'));
+  }
+
+  return (
+    <Input
+      value={value}
+      onChange={(e) => setValue(e.target.value.toUpperCase())}
+      onBlur={save}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+      }}
+      disabled={busy}
+      placeholder={t('advisorCodePlaceholder')}
+      aria-label={t('advisorCodeLabel')}
+      title={t('advisorCodeHelp')}
+      maxLength={30}
+      className="h-8 w-28 bg-muted border-border font-mono text-xs uppercase"
+    />
+  );
 }
 
 export function MembersTab() {
@@ -410,6 +485,19 @@ export function MembersTab() {
                       inline. Items align to the start on mobile so the
                       role dropdown lines up under the avatar. */}
                   <div className="flex items-center gap-2 sm:gap-3">
+                    {/* Advisor code (migration 043): links WordPress
+                        leads tagged `asesor:CLAVE` to this member. */}
+                    <AdvisorCodeField
+                      member={member}
+                      editable={canManageMembers}
+                      onSaved={(code) =>
+                        setMembers((prev) =>
+                          prev.map((m) =>
+                            m.user_id === member.user_id ? { ...m, advisor_code: code } : m,
+                          ),
+                        )
+                      }
+                    />
                     {/* Role display / editor. Inline Select is admin+
                         only AND not allowed on the owner row (owner
                         changes go through transfer, which lands later). */}

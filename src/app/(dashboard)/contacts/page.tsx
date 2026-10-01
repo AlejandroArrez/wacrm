@@ -55,6 +55,16 @@ import { ContactDetailView } from '@/components/contacts/contact-detail-view';
 import { ImportModal } from '@/components/contacts/import-modal';
 import { CustomFieldsManager } from '@/components/contacts/custom-fields-manager';
 import { useCan } from '@/hooks/use-can';
+import { useProspectOwners } from '@/hooks/use-prospect-owners';
+import { ProspectOwnerBadge } from '@/components/contacts/prospect-owner';
+import { ownershipCutoffIso, prospectOwnership } from '@/lib/prospects/ownership';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { GatedButton } from '@/components/ui/gated-button';
 import { useTranslations } from 'next-intl';
 
@@ -69,6 +79,13 @@ export default function ContactsPage() {
   const supabase = createClient();
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
+  const tProspects = useTranslations('Prospects');
+  // Advisors only ever receive their own prospects (RLS, migration
+  // 043), so the owner filter is for admins, owners and viewers.
+  const seesAllProspects = useCan('see-all-prospects');
+  const { members: ownerOptions, days: ownershipDays } = useProspectOwners();
+  // 'all' | 'none' (no current owner) | 'expired' | an advisor's user id
+  const [ownerFilter, setOwnerFilter] = useState<string>('all');
 
   const [contacts, setContacts] = useState<ContactWithTags[]>([]);
   const [loading, setLoading] = useState(true);
@@ -153,6 +170,15 @@ export default function ContactsPage() {
       const rows = (data ?? []) as { contact: Contact; total_count: number }[];
       contactRows = rows.map((r) => r.contact);
       count = rows.length > 0 ? Number(rows[0].total_count) : 0;
+      // The tag RPC has no owner parameter; narrow this page client-side.
+      if (ownerFilter !== 'all') {
+        contactRows = contactRows.filter((c) => {
+          const o = prospectOwnership(c, { days: ownershipDays });
+          if (ownerFilter === 'none') return o.state !== 'active';
+          if (ownerFilter === 'expired') return o.state === 'expired';
+          return o.state === 'active' && o.ownerId === ownerFilter;
+        });
+      }
     } else {
       let query = supabase
         .from('contacts')
@@ -163,6 +189,19 @@ export default function ContactsPage() {
       if (term) {
         const like = `%${term}%`;
         query = query.or(`name.ilike.${like},phone.ilike.${like},email.ilike.${like}`);
+      }
+
+      // Owner filter (migration 043). Triggers stamp the last activity
+      // together with every assignment, so it alone marks expiry.
+      if (ownerFilter !== 'all') {
+        const cutoff = ownershipCutoffIso(ownershipDays);
+        if (ownerFilter === 'none') {
+          query = query.or(`owner_id.is.null,owner_last_activity_at.is.null,owner_last_activity_at.lt.${cutoff}`);
+        } else if (ownerFilter === 'expired') {
+          query = query.not('owner_id', 'is', null).lt('owner_last_activity_at', cutoff);
+        } else {
+          query = query.eq('owner_id', ownerFilter).gte('owner_last_activity_at', cutoff);
+        }
       }
 
       const { data, count: exactCount, error } = await query;
@@ -207,7 +246,7 @@ export default function ContactsPage() {
 
     setContacts(enriched);
     setLoading(false);
-  }, [supabase, page, search, selectedTagIds, tagsMap, t]);
+  }, [supabase, page, search, selectedTagIds, tagsMap, t, ownerFilter, ownershipDays]);
 
   // Load-once-on-mount-ish data fetches. Each setter inside runs
   // inside an async promise completion (Supabase await), not
@@ -323,7 +362,7 @@ export default function ContactsPage() {
   const allTags = Object.values(tagsMap).sort((a, b) =>
     a.name.localeCompare(b.name)
   );
-  const hasActiveFilters = search.trim().length > 0 || selectedTagIds.length > 0;
+  const hasActiveFilters = search.trim().length > 0 || selectedTagIds.length > 0 || ownerFilter !== 'all';
 
   function toggleTagFilter(tagId: string) {
     setSelectedTagIds((prev) =>
@@ -399,6 +438,41 @@ export default function ContactsPage() {
               className="pl-8 bg-card border-border text-foreground placeholder:text-muted-foreground"
             />
           </div>
+
+          {seesAllProspects && (
+            <Select
+              value={ownerFilter}
+              onValueChange={(v) => {
+                if (!v) return;
+                setOwnerFilter(v);
+                setPage(0);
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-52 bg-card border-border text-foreground shrink-0">
+                <SelectValue>
+                  {ownerFilter === 'all'
+                    ? tProspects('filterAll')
+                    : ownerFilter === 'none'
+                      ? tProspects('filterNone')
+                      : ownerFilter === 'expired'
+                        ? tProspects('filterExpired')
+                        : ownerOptions.find((m) => m.user_id === ownerFilter)?.full_name ?? tProspects('filterAll')}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{tProspects('filterAll')}</SelectItem>
+                <SelectItem value="none">{tProspects('filterNone')}</SelectItem>
+                <SelectItem value="expired">{tProspects('filterExpired')}</SelectItem>
+                {ownerOptions
+                  .filter((m) => m.role === 'agent')
+                  .map((m) => (
+                    <SelectItem key={m.user_id} value={m.user_id}>
+                      {m.full_name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          )}
 
           <Popover>
             <PopoverTrigger
@@ -546,6 +620,7 @@ export default function ContactsPage() {
               <TableHead className="text-muted-foreground hidden md:table-cell">{t('tableColumns.email')}</TableHead>
               <TableHead className="text-muted-foreground hidden lg:table-cell">{t('tableColumns.company')}</TableHead>
               <TableHead className="text-muted-foreground hidden md:table-cell">{t('tableColumns.tags')}</TableHead>
+              <TableHead className="text-muted-foreground hidden md:table-cell">{tProspects('column')}</TableHead>
               <TableHead className="text-muted-foreground hidden lg:table-cell">{t('tableColumns.createdAt')}</TableHead>
               <TableHead className="text-muted-foreground w-12" />
             </TableRow>
@@ -553,7 +628,7 @@ export default function ContactsPage() {
           <TableBody>
             {loading ? (
               <TableRow className="border-border">
-                <TableCell colSpan={8} className="text-center py-12">
+                <TableCell colSpan={9} className="text-center py-12">
                   <div className="flex flex-col items-center gap-2">
                     <Loader2 className="size-6 animate-spin text-primary" />
                     <p className="text-sm text-muted-foreground">{t('loading')}</p>
@@ -562,7 +637,7 @@ export default function ContactsPage() {
               </TableRow>
             ) : contacts.length === 0 ? (
               <TableRow className="border-border">
-                <TableCell colSpan={8} className="text-center py-12">
+                <TableCell colSpan={9} className="text-center py-12">
                   <div className="flex flex-col items-center gap-2">
                     <Users className="size-8 text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">
@@ -636,6 +711,9 @@ export default function ContactsPage() {
                         </span>
                       )}
                     </div>
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    <ProspectOwnerBadge contact={contact} />
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs hidden lg:table-cell">
                     {new Date(contact.created_at).toLocaleDateString('en-US', {
