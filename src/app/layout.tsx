@@ -14,17 +14,27 @@ import {
   STORAGE_KEY,
   THEME_IDS,
 } from "@/lib/themes";
+import { getDeploymentBranding } from "@/lib/branding/server";
 
 const inter = Inter({
   variable: "--font-sans",
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: "CRM STRATO",
-    template: "%s — CRM STRATO",
-  },
+// The CRM's name in the browser tab comes from the account's branding
+// (Settings → Brand, migration 046); "CRM STRATO" when not set.
+export async function generateMetadata(): Promise<Metadata> {
+  const { name } = await getDeploymentBranding();
+  return {
+    ...baseMetadata,
+    title: {
+      default: name,
+      template: `%s — ${name}`,
+    },
+  };
+}
+
+const baseMetadata: Metadata = {
   description: "Self-hostable CRM template for WhatsApp.",
   robots: {
     index: false,

@@ -16,6 +16,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { MessageSquare, UsersRound } from "lucide-react";
+import { usePublicBranding } from "@/components/branding/use-public-branding";
+import { BRAND_CREDIT } from "@/lib/branding/branding";
+import { BrandImage } from "@/components/branding/brand-mark";
 
 // `useSearchParams` opts the component out of static prerendering
 // unless it sits under a Suspense boundary. We split the form into
@@ -37,6 +40,8 @@ function LoginPageInner() {
   // page to accept rather than to /dashboard.
   const inviteToken = searchParams.get("invite");
   const t = useTranslations("LoginPage");
+  const { branding } = usePublicBranding();
+  const hasBrandLogo = !!(branding.logoUrl || branding.logoDarkUrl);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -78,13 +83,28 @@ function LoginPageInner() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md border-border bg-card">
         <CardHeader className="items-center text-center">
-          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            {inviteToken ? (
-              <UsersRound className="h-6 w-6 text-primary" />
-            ) : (
-              <MessageSquare className="h-6 w-6 text-primary" />
-            )}
-          </div>
+          {!inviteToken && hasBrandLogo ? (
+            // The account's logo (Settings → Brand) with the fixed credit.
+            <div className="mb-3 flex flex-col items-center gap-1">
+              <BrandImage
+                branding={branding}
+                kind="logo"
+                alt={branding.name}
+                className="h-9 w-auto max-w-[260px] object-contain"
+              />
+              <span className="text-[10px] tracking-wide text-muted-foreground">
+                {BRAND_CREDIT}
+              </span>
+            </div>
+          ) : (
+            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+              {inviteToken ? (
+                <UsersRound className="h-6 w-6 text-primary" />
+              ) : (
+                <MessageSquare className="h-6 w-6 text-primary" />
+              )}
+            </div>
+          )}
           <CardTitle className="text-xl text-foreground">
             {inviteToken ? t('titleAccept') : t('titleWelcome')}
           </CardTitle>

@@ -16,7 +16,7 @@ import { isAdvisorHiddenRoute } from "@/lib/auth/roles";
 // client components can't export Next's metadata object.
 
 function DashboardShellInner({ children }: { children: React.ReactNode }) {
-  const { user, loading, accountRole } = useAuth();
+  const { user, loading, accountRole, account } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const t = useTranslations("DashboardShell");
@@ -41,6 +41,31 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (advisorBlocked) router.replace("/dashboard");
   }, [advisorBlocked, router]);
+
+  // Browser-tab icon follows the account's brand icon (Settings →
+  // Brand). The server-rendered /icon stays as the default.
+  const brandIcon = account?.branding.iconUrl ?? null;
+  useEffect(() => {
+    if (!brandIcon) return;
+    const links = Array.from(
+      document.querySelectorAll<HTMLLinkElement>('link[rel~="icon"]'),
+    );
+    const previous = links.map((l) => l.href);
+    links.forEach((l) => {
+      l.href = brandIcon;
+    });
+    if (links.length === 0) {
+      const link = document.createElement("link");
+      link.rel = "icon";
+      link.href = brandIcon;
+      document.head.appendChild(link);
+    }
+    return () => {
+      links.forEach((l, i) => {
+        l.href = previous[i];
+      });
+    };
+  }, [brandIcon]);
 
   if (loading) {
     return (

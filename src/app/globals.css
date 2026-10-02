@@ -299,3 +299,9 @@ html[data-theme="portamagna"][data-mode="dark"] {
     @apply font-sans;
   }
 }
+/* Brand images (Settings → Brand): both variants render; the mode picks
+   one. Done in CSS so it is right on first paint, before hydration. */
+html[data-mode="dark"] .brand-img-light,
+html:not([data-mode="dark"]) .brand-img-dark {
+  display: none;
+}
