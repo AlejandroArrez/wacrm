@@ -305,3 +305,17 @@ html[data-mode="dark"] .brand-img-light,
 html:not([data-mode="dark"]) .brand-img-dark {
   display: none;
 }
+
+/* Native controls (select lists, date pickers, scrollbars) follow the
+   mode. Without this, a <select> opened in dark mode shows a white list
+   with the page's light text — unreadable. */
+html[data-mode="dark"] {
+  color-scheme: dark;
+}
+html[data-mode="light"] {
+  color-scheme: light;
+}
+html[data-mode="dark"] select option {
+  background-color: var(--popover);
+  color: var(--popover-foreground);
+}
