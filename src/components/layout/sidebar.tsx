@@ -24,6 +24,7 @@ import {
   PanelLeftOpen,
   Radio,
   Send,
+  Target,
   Settings,
   Shield,
   User,
@@ -105,6 +106,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard },
+  { href: "/plan", labelKey: "plan", icon: Target },
   { href: "/inbox", labelKey: "inbox", icon: MessageSquare },
   { href: "/notifications", labelKey: "notifications", icon: Bell },
   { href: "/contacts", labelKey: "contacts", icon: Users },
