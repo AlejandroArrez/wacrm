@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { useProspectOwners } from '@/hooks/use-prospect-owners';
 import {
   dedupeByPhone,
   isUniqueViolation,
@@ -129,6 +130,11 @@ export function ImportModal({
   const t = useTranslations('Contacts.importModal');
   const supabase = createClient();
   const { accountId, canEditSettings } = useAuth();
+  const { members } = useProspectOwners();
+  // Who gets the imported prospects ('' = no advisor) and one extra
+  // tag stamped on every row (e.g. "campaña:feria-octubre").
+  const [assignTo, setAssignTo] = useState('');
+  const [listTag, setListTag] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [file, setFile] = useState<File | null>(null);
@@ -155,6 +161,8 @@ export function ImportModal({
     setHasCompanyColumn(false);
     setTagColorByKey(new Map());
     setResult(null);
+    setAssignTo('');
+    setListTag('');
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
@@ -234,7 +242,18 @@ export function ImportModal({
         unique,
         duplicates: inFileDupes,
         invalid: invalidPhone,
-      } = dedupeByPhone(parsedRows);
+      } = dedupeByPhone(
+        listTag.trim()
+          ? parsedRows.map((row) => ({
+              ...row,
+              tagNames: row.tagNames.some(
+                (n) => n.trim().toLowerCase() === listTag.trim().toLowerCase(),
+              )
+                ? row.tagNames
+                : [...row.tagNames, listTag.trim()],
+            }))
+          : parsedRows,
+      );
       skipped += inFileDupes;
 
       // 2) Skip numbers already in this account. One read of the
@@ -289,6 +308,9 @@ export function ImportModal({
           name: row.name || null,
           email: row.email || null,
           company: row.company || null,
+          // Admin-only import: the owner trigger (043) starts the
+          // 60-day window when an advisor is picked.
+          ...(assignTo ? { owner_id: assignTo } : {}),
         }));
 
         const { data, error } = await supabase
@@ -598,6 +620,45 @@ export function ImportModal({
                   {t('moreRows', { count: parsedRows.length - PREVIEW_LIMIT })}
                 </p>
               )}
+            </div>
+          )}
+
+          {preview.length > 0 && !result && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label htmlFor="import-assign" className="mb-1 block text-xs text-muted-foreground">
+                  {t('assignLabel')}
+                </label>
+                <select
+                  id="import-assign"
+                  value={assignTo}
+                  onChange={(e) => setAssignTo(e.target.value)}
+                  className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">{t('assignNone')}</option>
+                  {members
+                    .filter((m) => m.role !== 'viewer')
+                    .map((m) => (
+                      <option key={m.user_id} value={m.user_id}>
+                        {m.full_name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="import-list-tag" className="mb-1 block text-xs text-muted-foreground">
+                  {t('listTagLabel')}
+                </label>
+                <input
+                  id="import-list-tag"
+                  value={listTag}
+                  maxLength={60}
+                  onChange={(e) => setListTag(e.target.value)}
+                  placeholder="campaña:feria-octubre"
+                  className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground sm:col-span-2">{t('assignHelp')}</p>
             </div>
           )}
 

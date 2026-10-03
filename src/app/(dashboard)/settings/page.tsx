@@ -15,6 +15,7 @@ import { BrandingSettings } from '@/components/settings/branding-settings';
 import { WhatsAppConfig } from '@/components/settings/whatsapp-config';
 import { TemplateManager } from '@/components/settings/template-manager';
 import { QuickRepliesManager } from '@/components/settings/quick-replies-manager';
+import { OutreachSettings } from '@/components/settings/outreach-settings';
 import { ModelCardsSettings } from '@/components/settings/model-cards-settings';
 import { FieldsAndTagsPanel } from '@/components/settings/fields-and-tags-panel';
 import { DealsSettings } from '@/components/settings/deals-settings';
@@ -85,6 +86,7 @@ function SettingsPageInner() {
     whatsapp: <WhatsAppConfig />,
     templates: <TemplateManager />,
     'quick-replies': <QuickRepliesManager />,
+    outreach: <OutreachSettings />,
     'model-cards': <ModelCardsSettings />,
     fields: <FieldsAndTagsPanel />,
     deals: <DealsSettings />,

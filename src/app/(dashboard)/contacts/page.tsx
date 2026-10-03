@@ -79,6 +79,7 @@ export default function ContactsPage() {
   const supabase = createClient();
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
+  const canImport = useCan('manage-campaigns');
   const tProspects = useTranslations('Prospects');
   // Advisors only ever receive their own prospects (RLS, migration
   // 043), so the owner filter is for admins, owners and viewers.
@@ -399,16 +400,19 @@ export default function ContactsPage() {
               {t('customFieldsBtn')}
             </Button>
           )}
-          <GatedButton
-            variant="outline"
-            canAct={canEdit}
-            gateReason="add or import contacts"
-            onClick={() => setImportOpen(true)}
-            className="border-border text-muted-foreground hover:bg-muted"
-          >
-            <Upload className="size-4" />
-            {t('importBtn')}
-          </GatedButton>
+          {/* Lists are loaded by management only (Respuesta manual). */}
+          {canImport && (
+            <GatedButton
+              variant="outline"
+              canAct={canImport}
+              gateReason="import contacts"
+              onClick={() => setImportOpen(true)}
+              className="border-border text-muted-foreground hover:bg-muted"
+            >
+              <Upload className="size-4" />
+              {t('importBtn')}
+            </GatedButton>
+          )}
           <GatedButton
             canAct={canEdit}
             gateReason="add or import contacts"

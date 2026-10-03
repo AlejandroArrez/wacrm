@@ -31,6 +31,8 @@ const ALLOWED_MIME = new Set([
 // rejects anything malformed when we call updateUser({ email }). We
 // just want to stop obvious typos before making a network call.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Same shape the database accepts (migration 047).
+const WA_PHONE_RE = /^\+?[0-9][0-9 ()-]{6,22}$/;
 
 export function ProfileForm() {
   const t = useTranslations('Settings.profile');
@@ -45,6 +47,10 @@ export function ProfileForm() {
   const [removeAvatar, setRemoveAvatar] = useState(false);
   const [saving, setSaving] = useState(false);
   const [emailChangePending, setEmailChangePending] = useState(false);
+  // WhatsApp number for manual outreach (migration 047). `null` until
+  // loaded, and stays `null` if the column doesn't exist yet, so the
+  // save below never sends an unknown column.
+  const [waPhone, setWaPhone] = useState<string | null>(null);
 
   // Seed form state once the profile loads.
   useEffect(() => {
@@ -52,6 +58,26 @@ export function ProfileForm() {
     setFullName(profile.full_name ?? '');
     setEmail(profile.email ?? '');
   }, [profile]);
+
+  // The auth context selects fixed columns; read the WhatsApp number
+  // with `*` so this form works before and after migration 047.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    void supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled || !data || !('whatsapp_phone' in data)) return;
+        setWaPhone((data.whatsapp_phone as string | null) ?? '');
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Cleanup object URLs to avoid leaks.
   useEffect(() => {
@@ -113,6 +139,12 @@ export function ProfileForm() {
       return;
     }
 
+    const trimmedWa = waPhone?.trim() ?? '';
+    if (waPhone !== null && trimmedWa && !WA_PHONE_RE.test(trimmedWa)) {
+      toast.error(t('whatsappInvalid'));
+      return;
+    }
+
     setSaving(true);
     try {
       let nextAvatarUrl: string | null = profile.avatar_url ?? null;
@@ -146,6 +178,7 @@ export function ProfileForm() {
         .update({
           full_name: trimmedName,
           avatar_url: nextAvatarUrl,
+          ...(waPhone !== null ? { whatsapp_phone: trimmedWa || null } : {}),
         })
         .eq('user_id', user.id);
       if (updateError) {
@@ -304,6 +337,26 @@ export function ProfileForm() {
               </p>
             )}
           </div>
+
+          {/* WhatsApp for manual outreach (hidden until migration 047) */}
+          {waPhone !== null ? (
+            <div className="space-y-2">
+              <Label htmlFor="profile-whatsapp" className="text-foreground">
+                {t('whatsappLabel')}
+              </Label>
+              <Input
+                id="profile-whatsapp"
+                type="tel"
+                inputMode="tel"
+                value={waPhone}
+                onChange={(e) => setWaPhone(e.target.value)}
+                placeholder="+52 33 1234 5678"
+                maxLength={24}
+                disabled={saving}
+              />
+              <p className="text-xs text-muted-foreground">{t('whatsappHelp')}</p>
+            </div>
+          ) : null}
 
           {/* Read-only block */}
           <div className="rounded-lg border border-border bg-muted p-4">
