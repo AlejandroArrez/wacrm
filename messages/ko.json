@@ -25,6 +25,7 @@
     "outreach": "연락 대기",
     "pipelines": "파이프라인",
     "resources": "자료실",
+    "studio": "콘텐츠 생성기",
     "broadcasts": "브로드캐스트",
     "automations": "자동화",
     "flows": "플로우",
@@ -55,6 +56,7 @@
     "outreach": "연락 대기",
     "pipelines": "파이프라인",
     "resources": "자료실",
+    "studio": "콘텐츠 생성기",
     "broadcasts": "브로드캐스트",
     "automations": "자동화",
     "settings": "설정",
@@ -2019,6 +2021,7 @@
       "llmCalls": "LLM 호출",
       "autoReply": "자동 응답",
       "drafts": "초안",
+      "studio": "콘텐츠 생성기",
       "tokens": "토큰",
       "tokensPerDay": "일별 토큰",
       "byModel": "모델별",
@@ -2641,5 +2644,8 @@
     "prizeTitle": "보상",
     "prizeDescription": "조건 (선택)",
     "prizeImage": "이미지: https:// 링크 (선택)"
+  },
+  "Studio": {
+    "title": "콘텐츠 생성기"
   }
 }

@@ -165,6 +165,11 @@ export const RATE_LIMITS = {
    *  key past the provider's own rate limit. 60/min ≈ three busy agents
    *  drafting flat-out. */
   aiDraftAccount: { limit: 60, windowMs: 60_000 },
+  /** Content generator ("Copy Mágico"), per user. Each call writes three
+   *  variants with a stronger model, so it is tighter than drafts. */
+  studio: { limit: 10, windowMs: 60_000 },
+  /** Content generator, per account: the whole team on the shared key. */
+  studioAccount: { limit: 30, windowMs: 60_000 },
   /** AI auto-reply generation, per account. The per-conversation cap
    *  (`auto_reply_max_per_conversation`) bounds one thread; this bounds
    *  the whole account across threads, so a burst of inbound from many

@@ -25,6 +25,7 @@
     "outreach": "A contatar",
     "pipelines": "Pipelines",
     "resources": "Recursos",
+    "studio": "Gerador de conteúdo",
     "broadcasts": "Disparos",
     "automations": "Automações",
     "flows": "Fluxos",
@@ -55,6 +56,7 @@
     "outreach": "A contatar",
     "pipelines": "Pipelines",
     "resources": "Recursos",
+    "studio": "Gerador de conteúdo",
     "broadcasts": "Disparos",
     "automations": "Automações",
     "settings": "Configurações",
@@ -2019,6 +2021,7 @@
       "llmCalls": "Chamadas ao LLM",
       "autoReply": "Resposta automática",
       "drafts": "Rascunhos",
+      "studio": "Gerador de conteúdo",
       "tokens": "Tokens",
       "tokensPerDay": "Tokens por dia",
       "byModel": "Por modelo",
@@ -2641,5 +2644,8 @@
     "prizeTitle": "Prêmio",
     "prizeDescription": "Condições (opcional)",
     "prizeImage": "Imagem: link https:// (opcional)"
+  },
+  "Studio": {
+    "title": "Gerador de conteúdo"
   }
 }

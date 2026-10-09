@@ -6,11 +6,14 @@ export interface LogAiUsageArgs {
   /** Null for a draft not tied to one thread, or when the row was
    *  deleted between generation and logging. */
   conversationId: string | null
-  mode: 'auto_reply' | 'draft'
+  mode: 'auto_reply' | 'draft' | 'studio'
   provider: AiProvider
   model: string
   /** Provider usage; a no-op when null (nothing worth recording). */
   usage: AiUsage | null
+  /** Who spent it, when the call came from a person (draft, studio).
+   *  Column added in migration 049; omitted for the auto-reply bot. */
+  userId?: string | null
 }
 
 /**
@@ -41,6 +44,7 @@ export async function logAiUsage(
       prompt_tokens: args.usage.promptTokens,
       completion_tokens: args.usage.completionTokens,
       total_tokens: args.usage.totalTokens,
+      ...(args.userId ? { user_id: args.userId } : {}),
     })
     if (error) {
       console.error('[ai usage] log insert failed:', error)

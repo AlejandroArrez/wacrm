@@ -25,6 +25,7 @@
     "outreach": "To contact",
     "pipelines": "Pipelines",
     "resources": "Resources",
+    "studio": "Content studio",
     "broadcasts": "Broadcasts",
     "automations": "Automations",
     "flows": "Flows",
@@ -55,6 +56,7 @@
     "outreach": "To contact",
     "pipelines": "Pipelines",
     "resources": "Resources",
+    "studio": "Content studio",
     "broadcasts": "Broadcasts",
     "automations": "Automations",
     "settings": "Settings",
@@ -2019,6 +2021,7 @@
       "llmCalls": "LLM calls",
       "autoReply": "Auto-reply",
       "drafts": "Drafts",
+      "studio": "Content studio",
       "tokens": "Tokens",
       "tokensPerDay": "Tokens per day",
       "byModel": "By model",
@@ -2641,5 +2644,8 @@
     "prizeTitle": "Prize",
     "prizeDescription": "Conditions (optional)",
     "prizeImage": "Image: https:// link (optional)"
+  },
+  "Studio": {
+    "title": "Content studio"
   }
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
-import { BarChart3, Bot, PencilLine } from 'lucide-react';
+import { BarChart3, Bot, Palette, PencilLine } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { canEditSettings } from '@/lib/auth/roles';
 import {
@@ -37,6 +37,7 @@ interface UsageResponse {
   by_mode: {
     auto_reply: { calls: number; tokens: number };
     draft: { calls: number; tokens: number };
+    studio?: { calls: number; tokens: number };
   };
   by_model: {
     model: string;
@@ -161,6 +162,13 @@ export function AiUsageCard() {
                 value={formatCompactNumber(data.by_mode.draft.tokens)}
                 icon={PencilLine}
               />
+              {(data.by_mode.studio?.calls ?? 0) > 0 && (
+                <Stat
+                  label={t('studio')}
+                  value={formatCompactNumber(data.by_mode.studio?.tokens ?? 0)}
+                  icon={Palette}
+                />
+              )}
             </div>
 
             <div>

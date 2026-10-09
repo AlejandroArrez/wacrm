@@ -157,6 +157,20 @@ const nextConfig: NextConfig = {
         source: "/:path*",
         headers: [...SECURITY_HEADERS],
       },
+      {
+        // The content generator is framed by /studio. Same-origin only;
+        // must stay LAST so it overrides the DENY above (last match wins).
+        source: "/api/studio/app",
+        headers: [
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          {
+            key: "Content-Security-Policy-Report-Only",
+            value: SECURITY_HEADERS.find(
+              (h) => h.key === "Content-Security-Policy-Report-Only",
+            )!.value.replace("frame-ancestors 'none'", "frame-ancestors 'self'"),
+          },
+        ],
+      },
     ];
   },
 };

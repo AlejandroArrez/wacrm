@@ -149,6 +149,7 @@ export const ADVISOR_HIDDEN_ROUTES: readonly string[] = [
   "/automations",
   "/flows",
   "/agents",
+  "/studio",
 ] as const;
 
 /** True iff `pathname` is one of the routes hidden from advisors. */
